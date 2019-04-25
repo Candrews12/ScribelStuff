@@ -2,20 +2,52 @@
 //Hides logout and account buttons when not logged in
 //Hides login and signup buttons when logged in.
 
+//Checks for status changes, both login/logout
+//and updates from firebase in real time
 auth.onAuthStateChanged(user => {
     
     //if user is logged in, do x
     if (user){
-        console.log('User logged in: ', user);
+
+        //Get data
+        db.collection('userNotes').onSnapshot(snapshot => {
+        setupNotes(snapshot.docs);
+        setupUI(user);
+        }, err => {
+            console.log(err.message)
+        });
     }
     //if user is logged out, do y.
     //if logged out, user == null.
     else {
+
+        setupNotes([]);
+        setupUI();
+
         console.log('User logged out.');
     }
 });
 
+//Create notes
+const createForm = document.querySelector('#create-form');
+createForm.addEventListener('submit', (e) =>{
+    //prevents auto-refresh
+    e.preventDefault();
 
+    //takes title and content as input and stores in firebase database
+    db.collection('userNotes').add({
+        title: createForm.title.value,
+        content: createForm.content.value
+
+    }).then(() => {
+        //empties form & closes modal
+        const modal = document.querySelector('#modal-notes');
+        M.Modal.getInstance(modal).close();
+        createForm.reset();
+    }).catch(err => {
+        console.log(err.message);
+      });
+});
 
 
 //Authentication for sign-up
@@ -36,12 +68,18 @@ signupForm.addEventListener('submit', (e) => {
     //actual account creation
     auth.createUserWithEmailAndPassword(email,password).then(cred =>{
 
-        //Closes pop-up after signup is complete
-        const modal = document.querySelector('#modal-signup');
-        M.Modal.getInstance(modal).close();
-
-        //Resets form
-        signupForm.reset();
+        //adds user to the database
+        return db.collection('users').doc(cred.user.uid).set({
+            bio: signupForm['signup-bio'].value
+        });
+      
+    }).then(() => {
+          //Closes pop-up after signup is complete
+          const modal = document.querySelector('#modal-signup');
+          M.Modal.getInstance(modal).close();
+  
+          //Resets form
+          signupForm.reset();
     });
 });
 
